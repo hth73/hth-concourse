@@ -1,0 +1,332 @@
+## Concourse Tutorial
+## Docker Compose File --> https://concourse-ci.org/docker-compose.yml
+
+cd ~/repo-privat/hth-concourse
+
+mkdir concourse-srv && cd concourse-srv
+vi docker-compose.yml
+
+# version: '3'
+
+# services:
+#   concourse-db:
+#     image: postgres
+#     environment:
+#       POSTGRES_DB: concourse
+#       POSTGRES_PASSWORD: concourse_pass
+#       POSTGRES_USER: concourse_user
+#       PGDATA: /database
+
+#   concourse:
+#     image: concourse/concourse
+#     command: quickstart
+#     privileged: true
+#     depends_on: [concourse-db]
+#     ports: ["8080:8080"]
+#     environment:
+#       CONCOURSE_POSTGRES_HOST: concourse-db
+#       CONCOURSE_POSTGRES_USER: concourse_user
+#       CONCOURSE_POSTGRES_PASSWORD: concourse_pass
+#       CONCOURSE_POSTGRES_DATABASE: concourse
+       CONCOURSE_EXTERNAL_URL: http://localhost:8080
+       CONCOURSE_ADD_LOCAL_USER: admin:admin
+       CONCOURSE_MAIN_TEAM_LOCAL_USER: admin
+#       # instead of relying on the default "detect"
+#       CONCOURSE_WORKER_BAGGAGECLAIM_DRIVER: overlay
+#       CONCOURSE_CLIENT_SECRET: Y29uY291cnNlLXdlYgo=
+#       CONCOURSE_TSA_CLIENT_SECRET: Y29uY291cnNlLXdvcmtlcgo=
+#       CONCOURSE_X_FRAME_OPTIONS: allow
+#       CONCOURSE_CONTENT_SECURITY_POLICY: "*"
+#       CONCOURSE_CLUSTER_NAME: tutorial
+#       CONCOURSE_WORKER_CONTAINERD_DNS_SERVER: "8.8.8.8"
+#       CONCOURSE_WORKER_RUNTIME: "containerd"
+
+docker-compose up -d
+
+docker ps -a
+# CONTAINER ID   IMAGE                 COMMAND                  CREATED         STATUS         PORTS                                       NAMES
+# 141c3d75f923   concourse/concourse   "dumb-init /usr/loca…"   9 minutes ago   Up 9 minutes   0.0.0.0:8080->8080/tcp, :::8080->8080/tcp   concourse-srv-concourse-1
+# 8e931386190a   postgres              "docker-entrypoint.s…"   9 minutes ago   Up 9 minutes   5432/tcp                                    concourse-srv-concourse-db-1
+
+http://localhost:8080 (admin/admin)
+
+## Download fly
+## http://localhost:8080/api/v1/cli?arch=amd64&platform=linux
+
+mkdir bin
+chmod +x bin/fly
+
+bin/fly --target=tutorial login --concourse-url=http://localhost:8080 --username=admin --password=admin
+bin/fly -t tutorial login -c http://localhost:8080 -u admin -p admin
+
+bin/fly --target=tutorial sync
+bin/fly -t tutorial sync
+
+cat ~/.flyrc                                                                                        
+# targets:
+#   tutorial:
+#     api: http://localhost:8080
+#     team: main
+#     token:
+#       type: bearer
+#       value: 1c0X+gEUtNKzlmcIl5030GRFH8uSGGxiAAAAAA
+
+## Destroy Concourse
+docker-compose down
+
+# ---------------------------------------------------------------------------
+
+## Run Hello World Task
+##
+git clone https://github.com/starkandwayne/concourse-tutorial.git
+cd concourse-tutorial/tutorials/basic/task-hello-world
+../../../../bin/fly -t tutorial execute -c task_hello_world.yml
+
+# executing build 1 at http://localhost:8080/builds/1
+# initializing
+# ...
+# selected worker: 141c3d75f923
+# running echo hello world
+# hello world
+# succeeded
+
+vi task_hello_world.yml
+
+# ---
+# platform: linux
+
+# image_resource:
+#   type: docker-image
+#   source: {repository: busybox}
+
+# run:
+#   path: echo
+#   args: [hello world]
+
+http://localhost:8080/builds/1
+
+# ---------------------------------------------------------------------------
+
+## Run Ubuntu Image
+##
+../../../../bin/fly -t tutorial execute -c task_ubuntu_uname.yml
+
+# executing build 3 at http://localhost:8080/builds/3
+# initializing
+# ...
+# selected worker: 141c3d75f923
+# running uname -a
+# Linux af2e46be-726a-4e5a-61b7-d11d1a333641 5.15.0-27-generic #28-Ubuntu SMP Thu Apr 14 04:55:28 UTC 2022 x86_64 x86_64 x86_64 GNU/Linux
+# succeeded
+
+vi task_ubuntu_uname.yml
+
+# ---
+# platform: linux
+
+# image_resource:
+#   type: docker-image
+#   source: {repository: ubuntu}
+
+# run:
+#   path: uname
+#   args: [-a]
+
+http://localhost:8080/builds/3
+
+# ---------------------------------------------------------------------------
+
+## Task Inputs
+##
+cd ../task-inputs
+
+vi no_inputs.yml
+
+# ---
+# platform: linux
+
+# image_resource:
+#   type: docker-image
+#   source: {repository: busybox}
+
+# run:
+#   path: ls
+#   args: ["-al"]
+
+../../../../bin/fly -t tutorial execute -c no_inputs.yml
+
+# executing build 4 at http://localhost:8080/builds/4
+# initializing
+# ...
+# selected worker: 141c3d75f923
+# running ls -al
+# total 8
+# drwxr-xr-x    2 root     root          4096 Apr 28 17:13 .
+# drwxr-xr-x    3 root     root          4096 Apr 28 17:13 ..
+# succeeded
+
+http://localhost:8080/builds/4
+
+# ---------------------------------------------------------------------------
+
+## Task Inputs 2
+##
+## In the example task inputs_required.yml we add a single input
+## Commonly if wanting to run fly execute we will want to pass in the local folder (.). 
+## Use -i name=path option to configure each of the required inputs:
+## Now the fly execute command will upload the . directory as an input to the container. 
+## It will be made available at the path some-important-input:
+
+vi inputs_required.yml
+
+# ---
+# platform: linux
+
+# image_resource:
+#   type: docker-image
+#   source: {repository: busybox}
+
+inputs:
+ - name: some-important-input
+
+# run:
+#   path: ls
+#   args: ["-alR"]
+
+../../../../bin/fly -t tutorial execute -c inputs_required.yml 
+# error: missing required input `some-important-input`
+
+../../../../bin/fly -t tutorial execute -c inputs_required.yml -i some-important-input=.
+../../../../bin/fly -t tutorial e -c inputs_required.yml -i some-important-input=../task-hello-world
+
+# uploading some-important-input done
+# executing build 5 at http://localhost:8080/builds/5
+# initializing
+# ...
+# selected worker: 141c3d75f923
+# running ls -alR
+# .:
+# total 12
+# drwxr-xr-x    3 root     root          4096 Apr 28 17:16 .
+# drwxr-xr-x    3 root     root          4096 Apr 28 17:16 ..
+drwxr-xr-x    1 root     root          4096 Apr 28 17:16 some-important-input
+
+# ./some-important-input:
+# total 24
+# drwxr-xr-x    1 root     root          4096 Apr 28 17:16 .
+# drwxr-xr-x    3 root     root          4096 Apr 28 17:16 ..
+-rw-rw-r--    1 1000     1000           155 Apr 28 16:59 input_parent_dir.yml
+-rw-rw-r--    1 1000     1000           164 Apr 28 16:59 inputs_required.yml
+-rw-rw-r--    1 1000     1000           123 Apr 28 16:59 no_inputs.yml
+-rwxrwxr-x    1 1000     1000           522 Apr 28 16:59 test.sh
+# succeeded
+
+tree .
+
+# .
+# ├── input_parent_dir.yml
+# ├── inputs_required.yml
+# ├── no_inputs.yml
+# └── test.sh
+
+http://localhost:8080/builds/5
+
+# ---------------------------------------------------------------------------
+
+## The fly execute -i option can be removed if the current directory is the same name as the required input.
+## The task input_parent_dir.yml contains an input task-inputs which is also the current directory. 
+## All the contents in the directory ./task-inputs will be uploaded to the docker image. 
+## So the following command will work and return the same results as above:
+
+vi input_parent_dir.yml
+
+pwd
+~/repo-privat/hth-concourse/.../task-inputs
+
+# ---
+# platform: linux
+
+# image_resource:
+#   type: docker-image
+#   source: {repository: busybox}
+
+inputs:
+ - name: task-inputs
+
+# run:
+#   path: ls
+#   args: ["-alR"]
+
+../../../../bin/fly -t tutorial execute -c input_parent_dir.yml
+
+# ---------------------------------------------------------------------------
+
+## Task Scripts
+##
+
+## The inputs feature of a task allows us to pass in two types of inputs:
+
+## requirements/dependencies to be processed/tested/compiled
+## task scripts to be executed to perform complex behavior
+
+# A common pattern is for Concourse tasks to run: 
+# complex shell scripts rather than directly invoking commands as we did in the Hello World tutorial (we ran uname command with arguments -a).
+# Let's refactor task-hello-world/task_ubuntu_uname.yml into a new task task-scripts/task_show_uname.yml with a separated task script task-scripts/task_show_uname.sh
+
+# ../../../../bin/fly -t tutorial execute -c task_show_uname.yml -i task-scripts=../some-other-directroy/script.sh
+
+cd ../task-scripts
+cat task_show_uname.yml
+
+# ---
+# platform: linux
+
+# image_resource:
+#   type: docker-image
+#   source: {repository: busybox}
+
+inputs:
+  - name: task-scripts
+
+run:
+  path: /bin/sh
+  args: ["./task-scripts/task_show_uname.sh"]
+
+cat task_show_uname.sh
+
+#!/bin/sh
+uname -a
+
+../../../../bin/fly -t tutorial execute -c task_show_uname.yml
+
+# uploading task-scripts done
+# executing build 9 at http://localhost:8080/builds/9
+# initializing
+# ...
+# selected worker: 141c3d75f923
+# running /bin/sh ./task-scripts/task_show_uname.sh
+# Linux 8d509e51-c2c9-4bab-79ca-6c5a41bed850 5.15.0-27-generic #28-Ubuntu SMP Thu Apr 14 04:55:28 UTC 2022 x86_64 GNU/Linux
+
+http://localhost:8080/builds/9
+
+# ---------------------------------------------------------------------------
+
+## Basic Pipeline
+##
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
