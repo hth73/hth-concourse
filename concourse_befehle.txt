@@ -41,7 +41,7 @@ vi docker-compose.yml
 #       CONCOURSE_WORKER_CONTAINERD_DNS_SERVER: "8.8.8.8"
 #       CONCOURSE_WORKER_RUNTIME: "containerd"
 
-docker-compose up -d
+docker compose up -d
 
 docker ps -a
 # CONTAINER ID   IMAGE                 COMMAND                  CREATED         STATUS         PORTS                                       NAMES
@@ -53,14 +53,14 @@ http://localhost:8080 (admin/admin)
 ## Download fly
 ## http://localhost:8080/api/v1/cli?arch=amd64&platform=linux
 
-mkdir bin
-chmod +x bin/fly
+cp fly ~/bin/fly77
+chmod +x ~/bin/fly77
 
-bin/fly --target=tutorial login --concourse-url=http://localhost:8080 --username=admin --password=admin
-bin/fly -t tutorial login -c http://localhost:8080 -u admin -p admin
+fly77 --target=tutorial login --concourse-url=http://localhost:8080 --username=admin --password=admin
+fly77 -t tutorial login -c http://localhost:8080 -u admin -p admin
 
-bin/fly --target=tutorial sync
-bin/fly -t tutorial sync
+fly77 --target=tutorial sync
+fly77 -t tutorial sync
 
 cat ~/.flyrc                                                                                        
 # targets:
@@ -72,7 +72,10 @@ cat ~/.flyrc
 #       value: 1c0X+gEUtNKzlmcIl5030GRFH8uSGGxiAAAAAA
 
 ## Destroy Concourse
-docker-compose down
+docker compose down
+
+## Container stop
+docker compose stop
 
 # ---------------------------------------------------------------------------
 
@@ -80,7 +83,7 @@ docker-compose down
 ##
 git clone https://github.com/starkandwayne/concourse-tutorial.git
 cd concourse-tutorial/tutorials/basic/task-hello-world
-../../../../bin/fly -t tutorial execute -c task_hello_world.yml
+fly77 -t tutorial execute -c task_hello_world.yml
 
 # executing build 1 at http://localhost:8080/builds/1
 # initializing
@@ -109,7 +112,7 @@ http://localhost:8080/builds/1
 
 ## Run Ubuntu Image
 ##
-../../../../bin/fly -t tutorial execute -c task_ubuntu_uname.yml
+fly77 -t tutorial execute -c task_ubuntu_uname.yml
 
 # executing build 3 at http://localhost:8080/builds/3
 # initializing
@@ -153,7 +156,7 @@ vi no_inputs.yml
 #   path: ls
 #   args: ["-al"]
 
-../../../../bin/fly -t tutorial execute -c no_inputs.yml
+fly77 -t tutorial execute -c no_inputs.yml
 
 # executing build 4 at http://localhost:8080/builds/4
 # initializing
@@ -193,11 +196,11 @@ inputs:
 #   path: ls
 #   args: ["-alR"]
 
-../../../../bin/fly -t tutorial execute -c inputs_required.yml 
+fly77 -t tutorial execute -c inputs_required.yml 
 # error: missing required input `some-important-input`
 
-../../../../bin/fly -t tutorial execute -c inputs_required.yml -i some-important-input=.
-../../../../bin/fly -t tutorial e -c inputs_required.yml -i some-important-input=../task-hello-world
+fly77 -t tutorial execute -c inputs_required.yml -i some-important-input=.
+fly77 -t tutorial e -c inputs_required.yml -i some-important-input=../task-hello-world
 
 # uploading some-important-input done
 # executing build 5 at http://localhost:8080/builds/5
@@ -257,7 +260,7 @@ inputs:
 #   path: ls
 #   args: ["-alR"]
 
-../../../../bin/fly -t tutorial execute -c input_parent_dir.yml
+fly77 -t tutorial execute -c input_parent_dir.yml
 
 # ---------------------------------------------------------------------------
 
@@ -273,7 +276,7 @@ inputs:
 # complex shell scripts rather than directly invoking commands as we did in the Hello World tutorial (we ran uname command with arguments -a).
 # Let's refactor task-hello-world/task_ubuntu_uname.yml into a new task task-scripts/task_show_uname.yml with a separated task script task-scripts/task_show_uname.sh
 
-# ../../../../bin/fly -t tutorial execute -c task_show_uname.yml -i task-scripts=../some-other-directroy/script.sh
+# fly77 -t tutorial execute -c task_show_uname.yml -i task-scripts=../some-other-directroy/script.sh
 
 cd ../task-scripts
 cat task_show_uname.yml
@@ -297,7 +300,7 @@ cat task_show_uname.sh
 #!/bin/sh
 uname -a
 
-../../../../bin/fly -t tutorial execute -c task_show_uname.yml
+fly77 -t tutorial execute -c task_show_uname.yml
 
 # uploading task-scripts done
 # executing build 9 at http://localhost:8080/builds/9
@@ -313,20 +316,3 @@ http://localhost:8080/builds/9
 
 ## Basic Pipeline
 ##
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
